@@ -21,6 +21,8 @@ void callbackDispatcher() {
       permissionGranted = await location.requestPermission();
       if (permissionGranted != PermissionStatus.granted) {
         return Future.value(false);
+
+        
       }
     }
 
