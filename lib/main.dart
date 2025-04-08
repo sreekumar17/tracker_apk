@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
 import 'package:workmanager/workmanager.dart';
-import 'package:http/http.dart' as http;
-import 'helpers/database_helper.dart'; // ✅ This is correct now
 import 'background_task.dart';
+import 'location_service.dart';
+import 'db_helper.dart';
 
-const taskName = "backgroundLocationTask"; // ✅ Add this to fix usage
-
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: true,
-  );
+  await DBHelper.initDB();
+  Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
   Workmanager().registerPeriodicTask(
-    "1",
+    "1", // unique name
     taskName,
-    frequency: Duration(minutes: 15),
+    frequency: Duration(minutes: 15), // Android min is 15 mins
+    initialDelay: Duration(minutes: 1),
+    constraints: Constraints(
+      networkType: NetworkType.connected,
+    ),
   );
-
   runApp(MyApp());
 }
 
@@ -26,69 +24,50 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Location Tracker',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: HomePage(),
+      home: LocationHome(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
+class LocationHome extends StatefulWidget {
   @override
-  _HomePageState createState() => _HomePageState();
+  _LocationHomeState createState() => _LocationHomeState();
 }
 
-class _HomePageState extends State<HomePage> {
-  Location location = Location();
-  bool _serviceEnabled = false;
-  PermissionStatus? _permissionGranted;
-  LocationData? _locationData;
+class _LocationHomeState extends State<LocationHome> {
+  String status = 'Collecting...';
 
   @override
   void initState() {
     super.initState();
-    _initLocation();
+    checkLocation();
   }
 
-  void _initLocation() async {
-    _serviceEnabled = await location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await location.requestService();
-    }
+ Future<void> checkLocation() async {
+  final pos = await LocationService().getCurrentLocation();
+  if (pos != null) {
+    await DBHelper.insertLocation(pos.latitude, pos.longitude);
+    setState(() {
+      status = 'Location saved: (${pos.latitude}, ${pos.longitude})';
+    });
+  } else {
+    setState(() {
+      status = 'Location not available';
+    });
 
-    _permissionGranted = await location.hasPermission();
-    if (_permissionGranted != PermissionStatus.granted) {
-      _permissionGranted = await location.requestPermission();
-    }
-
-    if (_permissionGranted == PermissionStatus.granted) {
-      location.changeSettings(interval: 2000, distanceFilter: 1);
-
-      location.onLocationChanged.listen((LocationData currentLocation) async {
-        setState(() {
-          _locationData = currentLocation;
-        });
-
-        await DatabaseHelper.insertLocation(
-          currentLocation.latitude!,
-          currentLocation.longitude!,
-        );
-      });
-    }
+    // ✅ Show SnackBar here
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Please enable location services")),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Live Location')),
-      body: Center(
-        child: _locationData == null
-            ? CircularProgressIndicator()
-            : Text(
-                'Lat: ${_locationData!.latitude}, Lng: ${_locationData!.longitude}',
-                style: TextStyle(fontSize: 20),
-              ),
-      ),
+      appBar: AppBar(title: Text('Location Tracker')),
+      body: Center(child: Text(status)),
     );
   }
 }
