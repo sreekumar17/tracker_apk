@@ -4,6 +4,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:http/http.dart' as http;
 import 'helpers/database_helper.dart'; // ✅ This is correct now
 import 'background_task.dart';
+import 'package:permission_handler/permission_handler.dart' as perm;
 
 const taskName = "backgroundLocationTask"; // ✅ Add this to fix usage
 
@@ -50,33 +51,19 @@ class _HomePageState extends State<HomePage> {
     _initLocation();
   }
 
-  void _initLocation() async {
-    _serviceEnabled = await location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await location.requestService();
-    }
+ void _initLocation() async {  _serviceEnabled = await location.serviceEnabled(); if (!_serviceEnabled) { _serviceEnabled = await location.requestService(); if (!_serviceEnabled) return;  }
 
-    _permissionGranted = await location.hasPermission();
-    if (_permissionGranted != PermissionStatus.granted) {
-      _permissionGranted = await location.requestPermission();
-    }
+ _permissionGranted = await location.hasPermission(); if (_permissionGranted == PermissionStatus.denied) { _permissionGranted = await location.requestPermission(); if (_permissionGranted != PermissionStatus.granted) return;  }
 
-    if (_permissionGranted == PermissionStatus.granted) {
-      location.changeSettings(interval: 2000, distanceFilter: 1);
+if (await perm.Permission.locationAlways.isDenied) { final bgStatus = await perm.Permission.locationAlways.request(); if (!bgStatus.isGranted) { debugPrint("❌ Background location permission not granted"); return;  } }
 
-      location.onLocationChanged.listen((LocationData currentLocation) async {
-        setState(() {
-          _locationData = currentLocation;
-        });
-
-        await DatabaseHelper.insertLocation(
-          currentLocation.latitude!,
-          currentLocation.longitude!,
-        );
-      });
-    }
-  }
-
+ location.changeSettings(interval: 2000, distanceFilter: 1); location.onLocationChanged.listen((LocationData currentLocation) async { setState(() { _locationData = currentLocation; });
+ 
+ await DatabaseHelper.insertLocation(
+  currentLocation.latitude!,
+  currentLocation.longitude!,
+);
+}); }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
