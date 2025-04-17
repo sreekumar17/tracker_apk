@@ -1,26 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:location/location.dart' as loc;
 import 'package:workmanager/workmanager.dart';
-import 'package:http/http.dart' as http;
 import 'helpers/database_helper.dart';
 import 'background_task.dart';
 import 'package:permission_handler/permission_handler.dart' as perm;
 import 'dart:async';
+import 'services/foreground_service.dart'; // Import the new foreground service
 
 const taskName = "backgroundLocationTask";
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize the foreground service
+  await initializeForegroundService(); // Now works with await
+
+  // Initialize Workmanager
   Workmanager().initialize(
     callbackDispatcher,
     isInDebugMode: true,
   );
 
+  // Register the periodic task for background work
   Workmanager().registerPeriodicTask(
     "1",
     taskName,
-    frequency: Duration(minutes: 15),
+    frequency: Duration(minutes: 15), // Adjust the frequency as needed
   );
 
   runApp(MyApp());
