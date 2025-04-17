@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
+import 'package:location/location.dart' as loc;
 import 'package:workmanager/workmanager.dart';
 import 'package:http/http.dart' as http;
-import 'helpers/database_helper.dart'; // ✅ This is correct now
+import 'helpers/database_helper.dart';
 import 'background_task.dart';
 import 'package:permission_handler/permission_handler.dart' as perm;
+import 'dart:async';
 
-const taskName = "backgroundLocationTask"; // ✅ Add this to fix usage
+const taskName = "backgroundLocationTask";
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
   Workmanager().initialize(
     callbackDispatcher,
     isInDebugMode: true,
   );
+
   Workmanager().registerPeriodicTask(
     "1",
     taskName,
@@ -39,31 +42,74 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  Location location = Location();
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  final loc.Location location = loc.Location();
   bool _serviceEnabled = false;
-  PermissionStatus? _permissionGranted;
-  LocationData? _locationData;
+  loc.PermissionStatus? _permissionGranted;
+  loc.LocationData? _locationData;
+  bool _isListening = false;
+  StreamSubscription<loc.LocationData>? _locationSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initLocation();
   }
 
- void _initLocation() async {  _serviceEnabled = await location.serviceEnabled(); if (!_serviceEnabled) { _serviceEnabled = await location.requestService(); if (!_serviceEnabled) return;  }
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _locationSubscription?.cancel();
+    super.dispose();
+  }
 
- _permissionGranted = await location.hasPermission(); if (_permissionGranted == PermissionStatus.denied) { _permissionGranted = await location.requestPermission(); if (_permissionGranted != PermissionStatus.granted) return;  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _initLocation();
+    }
+  }
 
-if (await perm.Permission.locationAlways.isDenied) { final bgStatus = await perm.Permission.locationAlways.request(); if (!bgStatus.isGranted) { debugPrint("❌ Background location permission not granted"); return;  } }
+  Future<void> _initLocation() async {
+    _serviceEnabled = await location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await location.requestService();
+      if (!_serviceEnabled) return;
+    }
 
- location.changeSettings(interval: 2000, distanceFilter: 1); location.onLocationChanged.listen((LocationData currentLocation) async { setState(() { _locationData = currentLocation; });
- 
- await DatabaseHelper.insertLocation(
-  currentLocation.latitude!,
-  currentLocation.longitude!,
-);
-}); }
+    _permissionGranted = await location.hasPermission();
+    if (_permissionGranted == loc.PermissionStatus.denied) {
+      _permissionGranted = await location.requestPermission();
+      if (_permissionGranted != loc.PermissionStatus.granted) return;
+    }
+
+    if (await perm.Permission.locationAlways.isDenied) {
+      final bgStatus = await perm.Permission.locationAlways.request();
+      if (!bgStatus.isGranted) {
+        debugPrint("❌ Background location permission not granted");
+        return;
+      }
+    }
+
+    await location.changeSettings(interval: 2000, distanceFilter: 1);
+
+    if (!_isListening) {
+      _isListening = true;
+
+      _locationSubscription = location.onLocationChanged.listen((loc.LocationData currentLocation) async {
+        setState(() {
+          _locationData = currentLocation;
+        });
+
+        await DatabaseHelper.insertLocation(
+          currentLocation.latitude ?? 0.0,
+          currentLocation.longitude ?? 0.0,
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

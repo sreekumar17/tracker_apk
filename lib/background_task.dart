@@ -1,14 +1,15 @@
 import 'package:workmanager/workmanager.dart';
-import 'package:location/location.dart';
+import 'package:location/location.dart' as loc;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'helpers/database_helper.dart'; // ✅ Import from helpers folder
+import 'helpers/database_helper.dart';
+import 'package:permission_handler/permission_handler.dart' as perm;
 
-const taskName = "backgroundLocationTask"; // ✅ Define it here too
+const taskName = "backgroundLocationTask";
 
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    Location location = Location();
+    final location = loc.Location();
 
     bool serviceEnabled = await location.serviceEnabled();
     if (!serviceEnabled) {
@@ -16,19 +17,27 @@ void callbackDispatcher() {
       if (!serviceEnabled) return Future.value(false);
     }
 
-    PermissionStatus permissionGranted = await location.hasPermission();
-    if (permissionGranted != PermissionStatus.granted) {
+    loc.PermissionStatus permissionGranted = await location.hasPermission();
+    if (permissionGranted != loc.PermissionStatus.granted) {
       permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
+      if (permissionGranted != loc.PermissionStatus.granted) {
         return Future.value(false);
-
-        
       }
     }
 
-    LocationData loc = await location.getLocation();
+    if (await perm.Permission.locationAlways.isDenied) {
+      final bgStatus = await perm.Permission.locationAlways.request();
+      if (!bgStatus.isGranted) {
+        return Future.value(false);
+      }
+    }
 
-    await DatabaseHelper.insertLocation(loc.latitude!, loc.longitude!);
+    loc.LocationData locData = await location.getLocation();
+
+    await DatabaseHelper.insertLocation(
+      locData.latitude ?? 0.0,
+      locData.longitude ?? 0.0,
+    );
 
     List<Map<String, dynamic>> data = await DatabaseHelper.getAllLocations();
 
