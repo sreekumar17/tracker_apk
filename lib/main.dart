@@ -1,33 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:location/location.dart' as loc;
 import 'package:workmanager/workmanager.dart';
-import 'helpers/database_helper.dart';
-import 'background_task.dart';
 import 'package:permission_handler/permission_handler.dart' as perm;
 import 'dart:async';
-import 'services/foreground_service.dart'; // Import the new foreground service
+import './services/notification_service.dart';
+import './services/callback_dispatcher.dart';
+import './helpers/database_helper.dart';
 
 const taskName = "backgroundLocationTask";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize the foreground service
-  await initializeForegroundService(); // Now works with await
+  // Initialize the notification service
+  await NotificationService.init();
 
-  // Initialize Workmanager
-  Workmanager().initialize(
+  // Initialize Workmanager for background tasks
+  await Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: true,
+    isInDebugMode: false,
   );
 
-  // Register the periodic task for background work
-  Workmanager().registerPeriodicTask(
-    "1",
+  // Register the periodic task for background work (every 15 minutes)
+  await Workmanager().registerPeriodicTask(
+    "task_15_min",
     taskName,
-    frequency: Duration(minutes: 15), // Adjust the frequency as needed
+    frequency: Duration(minutes: 15),
   );
 
+  // Run the app
   runApp(MyApp());
 }
 
@@ -107,6 +108,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _locationData = currentLocation;
         });
 
+        // Store the location data into SQLite DB
         await DatabaseHelper.insertLocation(
           currentLocation.latitude ?? 0.0,
           currentLocation.longitude ?? 0.0,

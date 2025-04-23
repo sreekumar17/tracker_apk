@@ -6,6 +6,7 @@ FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 Future<void> initializeForegroundService() async {
+  // final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   final AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 

@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:tools="http://schemas.android.com/tools"
     package="com.example.tracker_apk">
 
     <!-- Permissions -->
@@ -7,6 +8,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
 
     <application
         android:label="tracker_apk"
@@ -16,6 +19,26 @@
         <service
             android:name="be.tramckrijte.workmanager.WorkManagerTaskService"
             android:exported="true" />
+        
+       <receiver
+    android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+    android:exported="true"
+    tools:replace="android:exported">
+    <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+    </intent-filter>
+</receiver>
+
+<receiver
+    android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+    android:exported="true"
+    tools:replace="android:exported" />
+
+
+
+
+
 
         <!-- MainActivity Configuration -->
         <activity

@@ -7,7 +7,7 @@ import 'package:permission_handler/permission_handler.dart' as perm;
 
 const taskName = "backgroundLocationTask";
 
-void callbackDispatcher() {
+void callbackDispatchr() {
   Workmanager().executeTask((task, inputData) async {
     final location = loc.Location();
 
